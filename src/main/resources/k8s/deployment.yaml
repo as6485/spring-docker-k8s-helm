@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: spring-docker-k8s-helm
+  name: spring-docker-k8s-helm
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: spring-docker-k8s-helm
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: spring-docker-k8s-helm
+    spec:
+      containers:
+      - image: spring-docker-k8s-helm-image2:latest
+        imagePullPolicy: Never
+        name: spring-docker-k8s-helm-image
+        ports:
+        - containerPort: 8080
+        resources: {}
+status: {}
