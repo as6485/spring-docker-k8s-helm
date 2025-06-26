@@ -55,6 +55,11 @@ kubelet: Running
 apiserver: Running
 kubeconfig: Configured
 ```
+
+
+Install Helm
+1. Get Helm from https://github.com/helm/helm/releases and keep at local somewhere
+2. Add Enviorment Variable PATH to this location
 ## Stage 1: Spring Boot + Docker
 In this stage we will create a spring boot app and dockerize it.
 
@@ -172,7 +177,9 @@ http://127.0.0.1:52801
 ! Because you are using a Docker driver on windows, the terminal needs to be open to run it.
 ```
 
-7. Verify all
+7. Access app at http://127.0.0.1:52801
+
+8. Verify all
 ```
 > kubectl get all
 NAME                                          READY   STATUS    RESTARTS   AGE
@@ -191,12 +198,169 @@ replicaset.apps/spring-docker-k8s-helm-9f65bf679    0         0         0       
 ```
 
 
-8. Shutdown
+9. Shutdown
 ```
 > kubectl delete service --all
 > kubectl delete deployment --all
 > minikube stop
 ```
+## Stage 3: Spring Boot + Helm chart
+
+
+Overall configuration
+
+ayan.org --> [Ingress --> Service (ClusterIP)  --> POD1, POD2]
+
+1. Create Helm Directory
+```
+src\main\resources\helm> helm create spring-docker-k8s-helm
+Creating spring-docker-k8s-helm
+
+\src\main\resources\helm> tree spring-docker-k8s-helm
+Folder PATH listing for volume OS
+Volume serial number is EA32-0916
+C:\USERS\URMIS\IDEAPROJECTS\SPRING-DOCKER-K8S-HELM\SRC\MAIN\RESOURCES\HELM\SPRING-DOCKER-K8S-HELM
+├───charts
+└───templates
+    └───tests
+```
+
+2. Make necessary edits to image.repository, service.type, service.port,
+   Remove liveliness and readiness probe from deployment.yaml
+   Refer \src\main\resources\helm for details
+
+3. Deploy using Helm
+```
+src\main\resources\helm> helm install release-1 .\spring-docker-k8s-helm\    
+NAME: release-1
+LAST DEPLOYED: Thu Jun 26 14:44:59 2025
+NAMESPACE: default
+STATUS: deployed
+REVISION: 1
+NOTES:
+1. Get the application URL by running these commands:
+  export NODE_PORT=$(kubectl get --namespace default -o jsonpath="{.spec.ports[0].nodePort}" services release-1-spring-docker-k8s-helm)
+  export NODE_IP=$(kubectl get nodes --namespace default -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo http://$NODE_IP:$NODE_PORT
+
+
+src\main\resources\helm> kubectl get all
+NAME                                                        READY   STATUS    RESTARTS   AGE
+pod/release-1-spring-docker-k8s-helm-5586786d5d-tlfts       1/1     Running   0          96s
+pod/release-1.0.0-spring-docker-k8s-helm-56d64577b6-d86cb   1/1     Running   0          2m12s
+
+NAME                                       TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)          AGE
+service/kubernetes                         ClusterIP   10.96.0.1        <none>        443/TCP          14h
+service/release-1-spring-docker-k8s-helm   NodePort    10.110.152.228   <none>        8080:30959/TCP   96s
+
+NAME                                                   READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/release-1-spring-docker-k8s-helm       1/1     1            1           96s
+deployment.apps/release-1.0.0-spring-docker-k8s-helm   1/1     1            1           2m12s
+
+NAME                                                              DESIRED   CURRENT   READY   AGE
+replicaset.apps/release-1-spring-docker-k8s-helm-5586786d5d       1         1         1       96s
+replicaset.apps/release-1.0.0-spring-docker-k8s-helm-56d64577b6   1         1         1       2m12s
+
+```
+
+4. Since we are running on minikube we can get the url to access this NodePort service
+```
+src\main\resources\helm> minikube service release-1-spring-docker-k8s-helm --url
+http://127.0.0.1:57923
+! Because you are using a Docker driver on windows, the terminal needs to be open to run it.
+```
+
+5. Enable Ingress Addon
+```
+src\main\resources\helm> minikube addons enable ingress
+* ingress is an addon maintained by Kubernetes. For any concerns contact minikube on GitHub.
+You can view the list of minikube maintainers at: https://github.com/kubernetes/minikube/blob/master/OWNERS
+* After the addon is enabled, please run "minikube tunnel" and your ingress resources would be available at "127.0.0.1"
+  - Using image registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.5.3
+  - Using image registry.k8s.io/ingress-nginx/controller:v1.12.2
+  - Using image registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.5.3
+* Verifying ingress addon...
+* The 'ingress' addon is enabled
+
+Verify ...
+src\main\resources\helm> kubectl get pods -n ingress-nginx
+NAME                                       READY   STATUS      RESTARTS   AGE
+ingress-nginx-admission-create-2t8sh       0/1     Completed   0          110s
+ingress-nginx-admission-patch-tnx82        0/1     Completed   0          110s
+ingress-nginx-controller-67c5cb88f-w7xdj   1/1     Running     0          110s
+
+```
+
+6. Enable Ingress and custom domain in Helm
+```
+ingress:
+  enabled: true
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: ayan.org
+      paths:
+        - path: /
+          pathType: Prefix
+```
+
+7. Change service.type=ClusterIP
+8. Change the version of the chart to 0.1.1
+9. Upgrade the helm deployment
+```
+src\main\resources\helm> helm upgrade release-1 .\spring-docker-k8s-helm\
+Release "release-1" has been upgraded. Happy Helming!
+NAME: release-1
+LAST DEPLOYED: Thu Jun 26 15:22:00 2025
+NAMESPACE: default
+STATUS: deployed
+REVISION: 2
+NOTES:
+1. Get the application URL by running these commands:
+  http://ayan.org/
+
+
+src\main\resources\helm> kubectl get ingress
+NAME                               CLASS   HOSTS      ADDRESS        PORTS   AGE
+release-1-spring-docker-k8s-helm   nginx   ayan.org   192.168.49.2   80      61s
+
+```
+
+10. Edit C:\Windows\System32\drivers\etc\hosts file
+```
+# Added custom domain for spring-docker-k8s-helm project
+127.0.0.1 ayan.org
+```
+
+11. Start the tunnel so that ingress resources would be available at "127.0.0.1"
+```
+PS C:\Users\urmis\IdeaProjects\spring-docker-k8s-helm\src\main\resources\helm> minikube tunnel
+* Tunnel successfully started
+
+* NOTE: Please do not close this terminal as this process must stay alive for the tunnel to be accessible ...
+
+! Access to ports below 1024 may fail on Windows with OpenSSH clients older than v8.1. For more information, see: https://minikube.sigs.k8s.io/docs/handbook/accessing/#access-to-ports-1024-on-windows-requires-root-permission
+* Starting tunnel for service release-1-spring-docker-k8s-helm.
+```
+
+12. Access app at https://ayan.org/hello
+
+13. Check how the Helm template is exactly rendered
+```
+src\main\resources\helm> helm template release-1 .\spring-docker-k8s-helm\
+```
+14. Shutdown
+```
+> helm uninstall release-1    
+release "release-1" uninstalled
+PS C:\Users\urmis\IdeaProjects\spring-docker-k8s-helm\src\main\resources\helm> kubectl get all
+NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   15h
+```
+
+
 ## Authors
 
 - [@as6485](https://www.github.com/as6485)
