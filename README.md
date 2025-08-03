@@ -144,7 +144,7 @@ spring-docker-k8s-helm-image2             latest     b54b066a7cf1   2 minutes ag
 deployment.apps/spring-docker-k8s-helm configured
 ```
 
-5. Expose the deployment outside the cluster through a Nodeport
+5. Expose the deployment outside the cluster through a Nodeport. Refer https://minikube.sigs.k8s.io/docs/handbook/accessing/ 
 ```
 > kubectl expose deployment spring-docker-k8s-helm --type=NodePort --name=spring-docker-k8s-helm-nodeport-service
 service/spring-docker-k8s-helm-nodeport-service exposed
